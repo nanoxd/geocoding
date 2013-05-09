@@ -4,6 +4,7 @@ class Address < ActiveRecord::Base
   require 'hpricot'
 
   attr_accessible :city, :country, :error_code, :latitude, :longitude, :state, :street, :streetno, :suburb, :zipcode
+  before_save :geocode_with_cache
 
   def minimal_clean_address
     [streetno, street, city, zip_code, country].to_a.compact.join(",")
@@ -52,6 +53,31 @@ class Address < ActiveRecord::Base
         self.state = (ac/:long_name).first.inner_html
       end
     end
+  end
+
+  def geocode_with_cache
+    c_address = address_lookup
+    if c_address
+      copy_cached_date(c_address)
+    else
+      geocode
+    end
+  end
+
+  def address_lookup
+    Address.where(cache_query).last
+  end
+
+  def cache_query
+    ["streetno = ? AND street = ? AND city = ? and zipcode = ?", streetno, street, city, zipcode]
+  end
+
+  def copy_cached_data(ca)
+    self.latitude = ca.latitude
+    self.longitude = ca.longitude
+    self.suburb = ca.suburb
+    self.county = ca.county
+    self.state = ca.state
   end
 
 
